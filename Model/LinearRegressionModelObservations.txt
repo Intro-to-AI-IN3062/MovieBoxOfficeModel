@@ -1,0 +1,12 @@
+Linear Regression Model tweaks made:
+
+1. Initial R^2 accuracy - R^2 accuracy: 53.5067711802418%
+
+To try and tackle skewed target revenue, (apply log(1+x))
+2. After doing y = np.log1p(data["worldwide"]) - R^2 accuracy: 34.75996946616482%
+3. np.log1p on all features: R^2 accuracy: 33.80180366328448%
+
+4.One hot encoding MPAA ratings instead of label encoding (Reduce numeric bias of rating values) - R^2 accuracy: 53.45657944738322%
+5.removing extreme world wide revenue values : R^2 accuracy: 49.994153700605835%
+
+Overall largest R^2 accuracy: Initial model (53.51%)

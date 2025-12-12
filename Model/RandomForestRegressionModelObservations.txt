@@ -1,0 +1,11 @@
+1.Initial Random Forest Regression Model R^2 accuracy: 51.94%
+2.converting date values into release_date, release_year and release_month columns - R^2 accuracy: 52.24% (+0.31% from initial R^2 accuracy)
+3. Including a runtime column - Random Forest R^2 accuracy: 56.15% (+4.22% from initial R^2 accuracy)
+
+Including both runtime and date columns yields an R^2 accuracy of 55.83%, lower than runtime alone,
+so runtime will be used on its own.
+
+4.Including a distributor frequency column + runtime column - 55.95% (+4%)
+
+
+Overall largest R^2 gain: +4.22% by including a runtime column as part of the features

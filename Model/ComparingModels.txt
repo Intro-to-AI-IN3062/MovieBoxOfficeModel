@@ -1,0 +1,12 @@
+Linear Regression R^2: 0.5345657944738322
+Linear Regression R^2 accuracy: 53.45657944738322%
+LR RMSE:  152602395.06211555
+LR MAE: 86360969.37619811
+
+Random Forest R^2: 0.5615449053991408
+Random Forest R^2 accuracy: 56.15449053991408%
+RFR RMSE:  148113539.88292384
+RFR MAE: 83045247.18898076
+
+Random Forest RMSE 2.94% lower, MAE 3.84% lower than LR model, as well as 2.7% higher R^2.
+Minor overall improvement.
