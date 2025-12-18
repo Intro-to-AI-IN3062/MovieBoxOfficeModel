@@ -13,6 +13,8 @@ from sklearn.tree import DecisionTreeRegressor  # Decision tree regression model
 
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score  # Regression evaluation metrics
 
+from sklearn import set_config  # Enables readable feature names from pipelines for interpretability output.
+
 
 # -----------------------------
 # DECISION TREE REGRESSION MODEL
@@ -105,7 +107,6 @@ def main():
 
 
     # 8) Decision Tree model: systematic hyperparameter tuning
-    #    We tune on validation only and keep the test set untouched until final evaluation
     param_grid = {
         "max_depth": [None, 10, 20, 30],          # Controls tree complexity
         "min_samples_split": [2, 10],             # Minimum samples required to split an internal node
@@ -186,13 +187,13 @@ def main():
     best_row = tuning_df.iloc[0].to_dict()
     print("Best params (by VAL RMSE):")
 
-    # Pandas can convert None/int columns into float with NaN
-    # DecisionTreeRegressor requires max_depth to be int or None
+    # Pandas can convert None/int columns into float with NaN.
+    # DecisionTreeRegressor requires max_depth to be int or None (Lecture 2: tree complexity control).
     best_max_depth = best_row["max_depth"]
-    if pd.isna(best_max_depth):  # If NaN, treat it as None
+    if pd.isna(best_max_depth):
         best_max_depth = None
     else:
-        best_max_depth = int(best_max_depth)  # Convert float to int
+        best_max_depth = int(best_max_depth)
 
     best_min_samples_split = int(best_row["min_samples_split"])
     best_min_samples_leaf = int(best_row["min_samples_leaf"])
@@ -205,10 +206,11 @@ def main():
         "max_features": best_max_features,
     })
 
-    print("Best validation performance:")
 
-    # Build the best model pipeline once, then evaluate it (avoids inline fit/predict type issues)
-    best_model = Pipeline([
+    # 9) Refit the best model on TRAIN+VAL and evaluate once on TEST
+    # Choose hyperparameters on validation, then refit on train+val,
+    # then evaluate on test once for an unbiased estimate of generalisation
+    final_model = Pipeline([
         ("preprocess", make_preprocess(numeric_cols, categorical_cols)),
         ("model", DecisionTreeRegressor(
             random_state=RANDOM_STATE,
@@ -219,9 +221,39 @@ def main():
         )),
     ])
 
-    best_model.fit(X_train, y_train)
-    y_best_val = best_model.predict(X_val)
-    print_metrics("DT_VAL_BEST", y_val, y_best_val)
+    # Fit the final model using all available training information
+    final_model.fit(X_trainval, y_trainval)
+
+    # Evaluate once on the held-out test set using regression metrics
+    y_pred_test = final_model.predict(X_test)
+    print_metrics("DT_TEST_FINAL", y_test, y_pred_test)
+
+
+    # 10) Interpretability output: feature importances
+    preprocess = final_model.named_steps["preprocess"]
+    tree = final_model.named_steps["model"]
+
+    # Get transformed feature names (numeric features + one-hot encoded categorical feature names).
+    feature_names = preprocess.get_feature_names_out()
+
+    # Extract feature importances from the trained tree (aligned with transformed feature order).
+    importances = tree.feature_importances_
+
+    # Create a ranked feature importance table for reporting.
+    importance_df = pd.DataFrame({
+        "feature": feature_names,
+        "importance": importances
+    }).sort_values(by="importance", ascending=False).reset_index(drop=True)
+
+    # Save full importance table for the report appendix / repo evidence.
+    importance_path = "DecisionTree_FeatureImportances.csv"
+    importance_df.to_csv(importance_path, index=False)
+
+    # Print only top 15 to keep terminal output readable.
+    print("-" * 40)
+    print("Top 15 feature importances (Decision Tree):")
+    print(importance_df.head(15).to_string(index=False))
+
 
 
 if __name__ == "__main__":
