@@ -9,57 +9,21 @@ from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
 import warnings
+from model_reports import ( #Helper methods for report generation
+    print_metrics, make_preprocess, write_data_quality_csv, calc_metrics, record_run, write_runs_csv
+)
+from data_prep import clean_data
 
 #RANDOM FOREST REGRESSION MODEL
-MILLION = 10**6
 RANDOM_STATE = 42
 warnings.filterwarnings("ignore")
-
-#Helper methods-------------------
-def print_metrics(tag, y_true, y_pred):
-        r2 = r2_score(y_true, y_pred)
-        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-        mae = mean_absolute_error(y_true, y_pred)
-        print(f"{tag}: R2={r2:.4f} RMSE={rmse/(MILLION):.2f}M MAE={mae/MILLION:.2f}M")
-
-def make_preprocess():
-    return ColumnTransformer(
-        transformers=[
-            ("numeric", SimpleImputer(strategy="mean"), numeric_cols),
-            ("categorical", Pipeline([
-                ("imputer", SimpleImputer(strategy="constant", fill_value="Unknown")),
-                ("onehot", OneHotEncoder(handle_unknown="ignore", drop="first")),
-            ]), categorical_cols),
-        ],
-        remainder="drop"
-    )
-#-------------------------------
 
 #Import data
 file_path = 'data/Mojo_budget_update.csv'
 data = pd.read_csv(file_path)
+write_data_quality_csv(data, "Reports/RandomForest/RF_Data_Quality.csv")
 
-runtime_text = data['run_time'].fillna('')
-hours = runtime_text.str.extract(r'(\d+)\s*hr', expand=False).fillna(0).astype(int)
-minutes = runtime_text.str.extract(r'(\d+)\s*min', expand=False).fillna(0).astype(int)
-data['run_time_minutes'] = hours * 60 + minutes
-
-data = data.drop(columns=[
-    'movie_id', 'title', 'trivia', 'html',
-    'release_date', 'run_time',
-    'distributor', 'director', 'writer', 'producer',
-    'composer', 'cinematographer',
-    'main_actor_1', 'main_actor_2', 'main_actor_3', 'main_actor_4'
-])
-
-data["worldwide"] = pd.to_numeric(data["worldwide"], errors="coerce")
-data = data.dropna(subset=["worldwide"])
-y = data["worldwide"] #Target
-X = data.drop(columns=['worldwide', 'domestic', 'international']) #Features
-
-#PREPROCESSING (updated to use pipeline)
-categorical_cols = ['genre_1','genre_2','genre_3','genre_4','mpaa']
-numeric_cols = X.select_dtypes(include=['number']).columns.tolist()
+data, X, y, numeric_cols, categorical_cols = clean_data(data) #DATA CLEANUP (modularised now)
 
 #SPLITTING DATA (train/validation/test)
 '''
@@ -74,14 +38,24 @@ X_train, X_val, y_train, y_val = train_test_split(
     X_trainval, y_trainval, test_size=0.20, random_state=RANDOM_STATE
 )
 
+rf_runs = []#stored runs for generating report
+
 #BASELINE MODEL (uses pipeline)
 baseline = Pipeline([
-    ("preprocess", make_preprocess()),
+    ("preprocess", make_preprocess(numeric_cols, categorical_cols)),
     ("model", DummyRegressor(strategy="mean")),
 ])
 baseline.fit(X_train, y_train)
 
 y_base = baseline.predict(X_val)
+
+#for report generation
+y_base_train = baseline.predict(X_train)
+base_train_m = calc_metrics(y_train, y_base_train)
+base_val_m = calc_metrics(y_val, y_base)
+record_run(rf_runs, "Baseline(DummyMean)", {"strategy": "mean"}, base_train_m, base_val_m)
+#-----
+
 print("BASELINE R^2:", r2_score(y_val, y_base))
 print("BASELINE RMSE:", np.sqrt(mean_squared_error(y_val, y_base)))
 print("BASELINE MAE:", mean_absolute_error(y_val, y_base))
@@ -89,7 +63,6 @@ print("-" * 30)
 #--------------------
 
 #Training/Evaluating
-
 param_sets = [ #for automated testing
     {"n_estimators": 200, "max_depth": None, "min_samples_leaf": 1,  "max_features": "sqrt"},
     {"n_estimators": 400, "max_depth": 30,   "min_samples_leaf": 5,  "max_features": "sqrt"},
@@ -100,13 +73,13 @@ param_sets = [ #for automated testing
 for p in param_sets:
     #Creating/Training the model (uses pipeline)
     model = Pipeline([
-    ("preprocess", make_preprocess()),
+    ("preprocess", make_preprocess(numeric_cols, categorical_cols)),
     ("model", RandomForestRegressor(
         n_estimators=p['n_estimators'],
         max_depth=p['max_depth'],
         min_samples_leaf=p["min_samples_leaf"],
         max_features=p["max_features"],
-        random_state=42,
+        random_state=RANDOM_STATE,
         n_jobs=1,
     )),
 ])
@@ -117,6 +90,12 @@ for p in param_sets:
     y_pred_train = model.predict(X_train) #Training
     y_pred_val   = model.predict(X_val) #Validation
 
+    #for report generation
+    train_metrics = calc_metrics(y_train, y_pred_train)
+    val_metrics = calc_metrics(y_val, y_pred_val) 
+    record_run(rf_runs, "RandomForest", p, train_metrics, val_metrics)
+    #--------
+
     print_metrics("RF_TRAIN", y_train, y_pred_train)
     print_metrics("RF_VAL",   y_val,   y_pred_val)
 
@@ -125,16 +104,18 @@ for p in param_sets:
 #Final Evaluation of best model
 best_p = {"n_estimators": 200, "max_depth": None, "min_samples_leaf": 1, "max_features": "sqrt"}
 best_model = Pipeline([
-    ("preprocess", make_preprocess()),
+    ("preprocess", make_preprocess(numeric_cols, categorical_cols)),
     ("model", RandomForestRegressor(
         n_estimators=best_p["n_estimators"],
         max_depth=best_p["max_depth"],
         min_samples_leaf=best_p["min_samples_leaf"],
         max_features=best_p["max_features"],
-        random_state=42,
+        random_state=RANDOM_STATE,
         n_jobs=1,
     )),
 ])
+
+write_runs_csv(rf_runs, "Reports/RandomForest/RF_Tuning_Runs.csv") #GENERATE RUNS REPORT
 
 best_model.fit(X_trainval, y_trainval) #refit model
 y_pred_test = best_model.predict(X_test) #predict on x-test set

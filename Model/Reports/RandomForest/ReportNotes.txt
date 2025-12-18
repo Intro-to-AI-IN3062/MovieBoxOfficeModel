@@ -8,7 +8,5 @@ values were removed to avoid training on any invalid targets.
 
 Tuning Results
 ----------------
-The mean baseline achieves near 0 R^2, which shows no predictive power beyond predicting the mean.
-Linear Regression improves validation performance substantially (R^2 = 0.582, RMSE = 135.6M) The choice of hyperparameter fit_intercept has negligible impact, so we keep it set to True.
-Validation R^2 is slightly higher than training R^2, suggesting no overfitting.
-
+A mean baseline was used as a reference (same baseline model) Random Forest hyperparameters were tuned over:
+n_estimators, max_depth, min_samples_leaf and max_features (as shown in RF_Tuning_Runs.csv)
