@@ -1,0 +1,89 @@
+Decision Tree Regression Model observations / tweaks made:
+
+Baseline (DummyRegressor mean) reference:
+- BASELINE_VAL: R2=-0.0000  RMSE=209.72M  MAE=140.19M
+This baseline is a sanity check. Any useful model should substantially outperform it (Lecture 2: evaluation discipline; Lecture 3: regression metrics).
+
+----------------------------------------
+1) Initial DecisionTreeRegressor (default parameters, using the same preprocessing pipeline):
+- DT_TRAIN and DT_VAL were evaluated to check overfitting behaviour.
+- Observation: default trees tend to overfit (very strong train performance with weaker validation performance), because a fully grown tree can memorise training examples (Lecture 2: decision tree complexity and overfitting).
+
+----------------------------------------
+2) Systematic hyperparameter tuning on validation set (DecisionTree_TuningResults.csv):
+Goal: reduce overfitting and improve generalisation by controlling tree complexity (Lecture 2).
+
+Hyperparameters tuned (48 total combinations):
+- max_depth: [None, 10, 20, 30]
+- min_samples_split: [2, 10]
+- min_samples_leaf: [1, 5, 10]
+- max_features: [None, "sqrt"]
+
+Selection criterion:
+- The best model was chosen by lowest validation RMSE (Lecture 3: RMSE measures typical error magnitude; Lecture 2: choose hyperparameters on validation only).
+
+Top validation result (best by VAL RMSE):
+- max_depth=10
+- min_samples_split=10
+- min_samples_leaf=10
+- max_features=None
+
+Performance for best tuning configuration (from terminal output):
+- DT_VAL_BEST: R2=0.4969  RMSE=148.75M  MAE=87.76M
+
+Additional tuning observations:
+- Limiting max_depth to 10 combined with increasing min_samples_leaf to 10 reduced overfitting while keeping strong performance.
+- Several configurations with deeper/unrestricted trees produced higher train R2 but did not improve validation RMSE meaningfully, which is consistent with overfitting (Lecture 2).
+
+Note on CSV formatting:
+- In DecisionTree_TuningResults.csv, max_depth and max_features may appear as 10.0 or NaN.
+  This is due to pandas storing mixed None + numeric columns; NaN corresponds to None (unrestricted depth / no feature restriction).
+  The model code converts values back to the correct types before fitting.
+
+----------------------------------------
+3) Final refit on Train+Validation and single evaluation on Test set:
+Method:
+- After hyperparameter selection, the best tree configuration was refit using the combined train+validation data (X_trainval).
+- The test set was used exactly once at the end to estimate generalisation performance (Lecture 2: avoid test leakage).
+
+Final test performance:
+- DT_TEST_FINAL: R2=0.4940  RMSE=140.41M  MAE=81.39M
+
+Generalisation check:
+- Validation R2 (0.4969) and Test R2 (0.4940) are very close, suggesting the model selection process generalised well and the test set was not leaked into tuning (Lecture 2).
+
+Baseline improvement:
+- Compared to the DummyRegressor baseline, the tuned decision tree provides a large improvement:
+  - RMSE reduced from ~209.72M to ~140.41M
+  - MAE reduced from ~140.19M to ~81.39M
+  - R2 improved from ~0.00 to ~0.49
+
+----------------------------------------
+4) Interpretability output (DecisionTree_FeatureImportances.csv):
+Decision trees allow inspection of feature importance, helping explain which factors drive predictions (Lecture 2: tree interpretability).
+
+Top drivers (from printed top 15 importances):
+1) numeric__budget (~0.8747 importance)
+2) numeric__run_time_minutes (~0.0509)
+3) numeric__year (~0.0406)
+Followed by smaller contributions from selected genre and MPAA one-hot encoded features.
+
+Interpretation:
+- Budget dominates the model, which is plausible for box office prediction because higher budgets typically correlate with higher worldwide revenue.
+- Runtime and year provide additional explanatory power, while genre/MPAA contribute smaller refinements.
+- This ranking is useful for the report discussion section as evidence of which variables matter most in the fitted model.
+
+----------------------------------------
+Overall best configuration and result:
+Best tuned Decision Tree (selected by lowest validation RMSE):
+- max_depth=10
+- min_samples_split=10
+- min_samples_leaf=10
+- max_features=None
+
+Final reported performance (single held-out test evaluation):
+- DT_TEST_FINAL: R2=0.4940  RMSE=140.41M  MAE=81.39M
+
+Summary conclusion:
+- The tuned DecisionTreeRegressor is a strong improvement over baseline and produces stable validation/test performance.
+- The model is also interpretable, with feature importances showing budget as the primary driver, aligning with real-world expectations.
