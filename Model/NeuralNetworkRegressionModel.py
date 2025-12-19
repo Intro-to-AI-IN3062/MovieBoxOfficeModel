@@ -62,24 +62,24 @@ sc.fit(X_train)
 X_train= sc.transform(X_train)
 X_test = sc.transform(X_test)
 
-print(X.shape[1])
-
 input_dim = X.shape[1]
 print(f"Input dimension: {input_dim}")
 
 model = Sequential()
-model.add(Input(shape=(input_dim,))) 
-model.add(Dense(128, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 1
-#model.add(Dense(64, activation='relu')) # Hidden 2
-model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 2 + regularizer
-#model.add(Dropout(0.1))
-#model.add(Dense(32,activation='relu')) #Hidden 3
-model.add(Dense(32,activation='relu',kernel_regularizer=regularizers.l1(0.01))) #Hidden 3 + regularizer
+model.add(Input(shape=(input_dim,)))
+model.add(Dense(128,activation='relu',kernel_regularizer=regularizers.l1(0.01)))
+model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 1, added for actual improvement over mean
+#model.add(Dropout(0.01))
+model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 2
+model.add(Dense(32,activation='relu',kernel_regularizer=regularizers.l1(0.01))) #Hidden 3
+
+# regularizers: ,kernel_regularizer=regularizers.l2(0.01)
+
 model.add(Dense(1)) # Output
 model.compile(loss='mean_squared_error', optimizer='adam')
-monitor = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5, verbose=1, mode='auto')
+#monitor = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5, verbose=1, mode='auto')
 model.summary()
-model.fit(X_train,y_train,callbacks=[monitor],verbose=2,epochs=200)
+model.fit(X_train,y_train,verbose=2,epochs=300) #callbacks=[monitor],
 
 #With test data
 pred = model.predict(X_test)
