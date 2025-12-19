@@ -1,8 +1,20 @@
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras import regularizers
+from tensorflow.keras.layers import Input
+from tensorflow.keras.models import load_model
+from tensorflow.keras.callbacks import EarlyStopping
+
 import numpy as np
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import pandas as pd
+import io
+import os
+import requests
+from sklearn import metrics
 from sklearn.model_selection import train_test_split
-#RANDOM FOREST REGRESSION MODEL
+from sklearn.preprocessing import StandardScaler 
+
+#NEURAL NETWORK REGRESSION MODEL
 
 file_path = 'data/Mojo_budget_update.csv'
 data = pd.read_csv(file_path)
@@ -44,5 +56,44 @@ X = data.drop(columns=['worldwide', 'domestic', 'international']) #Features
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
 
 #Creating model
+sc = StandardScaler()
+sc.fit(X_train)
+X_train= sc.transform(X_train)
+X_test = sc.transform(X_test)
 
+print(X.shape[1])
 
+model = Sequential()
+model.add(Input(X[1].shape))
+model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 1
+#model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 1 + regularizer
+#model.add(Dropout(0.1))
+model.add(Dense(32,activation='relu',kernel_regularizer=regularizers.l1(0.01))) #Hidden 2
+#model.add(Dense(32,activation='relu',kernel_regularizer=regularizers.l1(0.01))) #Hidden 2 + regularizer
+model.add(Dense(1)) # Output
+model.compile(loss='mean_squared_error', optimizer='adam')
+monitor = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5, verbose=1, mode='auto')
+model.summary()
+model.fit(X_train,y_train,callbacks=[monitor],verbose=2,epochs=200)
+
+#With test data
+pred = model.predict(X_test)
+score = np.sqrt(metrics.mean_squared_error(pred,y_test))
+print(f"Final score (RMSE): {score}")
+
+#path to where the file will be saved
+save_path = "/save/"
+
+# save neural network structure to JSON (no weights)
+model_json = model.to_json()
+with open(os.path.join(save_path,"NeuralNetworkRegressor.json"), "w") as json_file:
+    json_file.write(model_json)
+
+# save entire network to HDF5 (save everything, suggested)
+model.save(os.path.join(save_path,"NeuralNetworkRegressor.keras"))
+
+# code for reloading
+model2 = load_model(os.path.join(save_path,"NeuralNetworkRegressor.keras"))
+pred = model2.predict(X_test)
+score = np.sqrt(metrics.mean_squared_error(pred,y_test))
+print(f"Final score (RMSE): {score}")
