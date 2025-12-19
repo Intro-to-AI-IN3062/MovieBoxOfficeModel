@@ -120,3 +120,13 @@ write_runs_csv(rf_runs, "Reports/RandomForest/RF_Tuning_Runs.csv") #GENERATE RUN
 best_model.fit(X_trainval, y_trainval) #refit model
 y_pred_test = best_model.predict(X_test) #predict on x-test set
 print_metrics("RF_TEST", y_test, y_pred_test)
+
+#FINAL RESULTS
+test_results = calc_metrics(y_test, y_pred_test)
+pd.DataFrame([{
+    "model": "RandomForest",
+    "params": str(best_p),
+    "r2_test": test_results["r2"],
+    "rmse_test": test_results["rmse"],
+    "mae_test": test_results["mae"],
+}]).to_csv("Reports/RandomForest/RF_Test_Result.csv", index=False)

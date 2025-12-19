@@ -1,0 +1,2 @@
+model,params,r2_test,rmse_test,mae_test
+LinearRegression,{'fit_intercept': True},0.5186600477901181,136943028.32275045,82781115.54336585

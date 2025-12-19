@@ -1,0 +1,2 @@
+model,params,r2_test,rmse_test,mae_test
+Baseline(DummyMean),{'strategy':'mean'},-0.0018619528764047821,197568596.2960055,132849629.67242594
