@@ -13,6 +13,7 @@ import requests
 from sklearn import metrics
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler 
+from sklearn.dummy import DummyRegressor
 
 #NEURAL NETWORK REGRESSION MODEL
 
@@ -63,13 +64,17 @@ X_test = sc.transform(X_test)
 
 print(X.shape[1])
 
+input_dim = X.shape[1]
+print(f"Input dimension: {input_dim}")
+
 model = Sequential()
-model.add(Input(X[1].shape))
-model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 1
-#model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 1 + regularizer
+model.add(Input(shape=(input_dim,))) 
+model.add(Dense(128, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 1
+#model.add(Dense(64, activation='relu')) # Hidden 2
+model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 2 + regularizer
 #model.add(Dropout(0.1))
-model.add(Dense(32,activation='relu',kernel_regularizer=regularizers.l1(0.01))) #Hidden 2
-#model.add(Dense(32,activation='relu',kernel_regularizer=regularizers.l1(0.01))) #Hidden 2 + regularizer
+#model.add(Dense(32,activation='relu')) #Hidden 3
+model.add(Dense(32,activation='relu',kernel_regularizer=regularizers.l1(0.01))) #Hidden 3 + regularizer
 model.add(Dense(1)) # Output
 model.compile(loss='mean_squared_error', optimizer='adam')
 monitor = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5, verbose=1, mode='auto')
@@ -81,19 +86,27 @@ pred = model.predict(X_test)
 score = np.sqrt(metrics.mean_squared_error(pred,y_test))
 print(f"Final score (RMSE): {score}")
 
-#path to where the file will be saved
-save_path = "/save/"
+mean = DummyRegressor(strategy="mean")
+mean.fit(X_train, y_train)
+y_mean = mean.predict(X_test)
+baseline_rmse = np.sqrt(metrics.mean_squared_error(y_test, y_mean))
+print(f"Baseline RMSE: {baseline_rmse}")
+print(f"Model RMSE: {score}")
+print(f"Improvement: {(baseline_rmse - score)/baseline_rmse*100:.2f}%")
 
-# save neural network structure to JSON (no weights)
-model_json = model.to_json()
-with open(os.path.join(save_path,"NeuralNetworkRegressor.json"), "w") as json_file:
-    json_file.write(model_json)
+# #path to where the file will be saved
+# save_path = "save/"
 
-# save entire network to HDF5 (save everything, suggested)
-model.save(os.path.join(save_path,"NeuralNetworkRegressor.keras"))
+# # save neural network structure to JSON (no weights)
+# model_json = model.to_json()
+# with open(os.path.join(save_path,"NeuralNetworkRegressor.json"), "w") as json_file:
+#     json_file.write(model_json)
 
-# code for reloading
-model2 = load_model(os.path.join(save_path,"NeuralNetworkRegressor.keras"))
-pred = model2.predict(X_test)
-score = np.sqrt(metrics.mean_squared_error(pred,y_test))
-print(f"Final score (RMSE): {score}")
+# # save entire network to KERAS (save everything, suggested)
+# model.save(os.path.join(save_path,"NeuralNetworkRegressor.keras"))
+
+# # code for reloading
+# model2 = load_model(os.path.join(save_path,"NeuralNetworkRegressor.keras"))
+# pred = model2.predict(X_test)
+# score = np.sqrt(metrics.mean_squared_error(pred,y_test))
+# print(f"Final score (RMSE): {score}")
