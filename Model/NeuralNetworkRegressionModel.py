@@ -67,11 +67,12 @@ print(f"Input dimension: {input_dim}")
 
 model = Sequential()
 model.add(Input(shape=(input_dim,)))
-model.add(Dense(128,activation='relu',kernel_regularizer=regularizers.l1(0.01)))
-model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 1, added for actual improvement over mean
+model.add(Dense(256,activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 1, increased to highest reached 35.64%
+model.add(Dense(128, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 2, added for actual improvement over mean
+model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 3, increased to 35%
 #model.add(Dropout(0.01))
-model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 2
-model.add(Dense(32,activation='relu',kernel_regularizer=regularizers.l1(0.01))) #Hidden 3
+model.add(Dense(32, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 4
+model.add(Dense(16,activation='relu',kernel_regularizer=regularizers.l1(0.01))) #Hidden 5
 
 # regularizers: ,kernel_regularizer=regularizers.l2(0.01)
 
@@ -79,7 +80,7 @@ model.add(Dense(1)) # Output
 model.compile(loss='mean_squared_error', optimizer='adam')
 #monitor = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5, verbose=1, mode='auto')
 model.summary()
-model.fit(X_train,y_train,verbose=2,epochs=300) #callbacks=[monitor],
+model.fit(X_train,y_train,verbose=2,epochs=250) #callbacks=[monitor],
 
 #With test data
 pred = model.predict(X_test)
