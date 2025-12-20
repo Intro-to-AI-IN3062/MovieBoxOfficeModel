@@ -1,0 +1,15 @@
+feature,missing_count,missing_%
+genre_4,2120,65.37
+genre_3,1022,31.51
+international,410,12.64
+genre_2,281,8.66
+mpaa,161,4.96
+cinematographer,114,3.52
+composer,105,3.24
+domestic,19,0.59
+distributor,15,0.46
+producer,13,0.4
+writer,9,0.28
+worldwide,7,0.22
+main_actor_4,3,0.09
+release_date,1,0.03

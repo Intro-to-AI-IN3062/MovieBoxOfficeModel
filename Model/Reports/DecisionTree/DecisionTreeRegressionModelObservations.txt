@@ -71,7 +71,6 @@ Followed by smaller contributions from selected genre and MPAA one-hot encoded f
 Interpretation:
 - Budget dominates the model, which is plausible for box office prediction because higher budgets typically correlate with higher worldwide revenue.
 - Runtime and year provide additional explanatory power, while genre/MPAA contribute smaller refinements.
-- This ranking is useful for the report discussion section as evidence of which variables matter most in the fitted model.
 
 ----------------------------------------
 Overall best configuration and result:
