@@ -1,0 +1,2 @@
+model,params,r2_test,rmse_test,mae_test
+NeuralNetwork,"{'ID': 'NN_3', 'layers': [256, 128], 'regularizer': 0.01}",0.5212543903474118,136573479.58661208,82562530.10074165

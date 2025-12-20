@@ -1,0 +1,6 @@
+model,params,r2_train,rmse_train,mae_train,r2_val,rmse_val,mae_val,r2_gap
+Baseline(DummyMean),{'strategy': 'mean'},0.0,225.028,134.98,-0.0,209.72,140.19,0.0
+NeuralNetwork,"{'ID': 'NN_1', 'layers': [256, 128, 64, 32, 16], 'regularizer': 0.01}",0.499,159.248,92.93,0.57,137.47,89.22,-0.071
+NeuralNetwork,"{'ID': 'NN_2', 'layers': [128, 64, 32], 'regularizer': 0.01}",0.502,158.826,91.18,0.576,136.48,87.57,-0.075
+NeuralNetwork,"{'ID': 'NN_3', 'layers': [256, 128], 'regularizer': 0.01}",0.501,158.951,87.69,0.582,135.67,84.38,-0.08
+NeuralNetwork,"{'ID': 'NN_4', 'layers': [512, 256, 128, 64], 'regularizer': 0.01}",0.499,159.219,86.89,0.581,135.8,83.8,-0.081

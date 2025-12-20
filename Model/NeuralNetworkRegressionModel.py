@@ -11,103 +11,141 @@ import io
 import os
 import requests
 from sklearn import metrics
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler 
 from sklearn.dummy import DummyRegressor
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+import warnings
+from model_reports import ( #Helper methods for report generation
+    print_metrics, make_preprocess, write_data_quality_csv, calc_metrics, record_run, write_runs_csv
+)
+from data_prep import clean_data
 
 #NEURAL NETWORK REGRESSION MODEL
+RANDOM_STATE = 42
+warnings.filterwarnings("ignore")
 
 file_path = 'data/Mojo_budget_update.csv'
 data = pd.read_csv(file_path)
+write_data_quality_csv(data, "Reports/NeuralNetwork/NN_Data_Quality.csv")
 
-#EXPERIMENTATION BLOCKS ---------------------------
-# #include distributor as a frequency
-# data['distributor'] = data['distributor'].fillna('Unknown')
-# data['distributor_freq'] = data['distributor'].map(data['distributor'].value_counts()).fillna(0)
+data, X, y, numeric_cols, categorical_cols = clean_data(data) #DATA CLEANUP (modularised now)
 
-# #convert dates
-# data['release_date'] = pd.to_datetime(data['release_date'], format='%d/%m/%Y', errors='coerce')
-# data['release_year'] = data['release_date'].dt.year
-# data['release_month'] = data['release_date'].dt.month
-#EXPERIMENTATION---------------------------
+#SPLITTING DATA (train/validation/test)
+'''
+25% test
+75% train+validation ->  60% train + 15% validation
 
-runtime_text = data['run_time'].fillna('')
-hours = runtime_text.str.extract(r'(\d+)\s*hr', expand=False).fillna(0).astype(int)
-minutes = runtime_text.str.extract(r'(\d+)\s*min', expand=False).fillna(0).astype(int)
-data['run_time_minutes'] = hours * 60 + minutes
+'''
+X_trainval, X_test, y_trainval, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=RANDOM_STATE
+    )
+X_train, X_val, y_train, y_val = train_test_split(
+    X_trainval, y_trainval, test_size=0.20, random_state=RANDOM_STATE
+)
 
-#DATA CLEANUP / ENCODING (same as linear regression model)
-data = data.drop(columns=[
-            'movie_id', 'title', 'trivia', 'html',
-            'release_date', 'run_time',
-            'distributor', 'director', 'writer', 'producer',
-            'composer', 'cinematographer',
-            'main_actor_1', 'main_actor_2', 'main_actor_3', 'main_actor_4'
-        ])
+preprocessor = make_preprocess(numeric_cols, categorical_cols)
+X_train = preprocessor.fit_transform(X_train)
+X_val = preprocessor.transform(X_val)
+X_test = preprocessor.transform(X_test)
+X_trainval = preprocessor.fit_transform(X_trainval)
 
-numeric_columns = data.select_dtypes(include=['number']).columns
-data[numeric_columns] = data[numeric_columns].fillna(data[numeric_columns].mean())
+nn_runs = []  # Store runs for reporting
 
-data['mpaa'] = data['mpaa'].fillna('Unknown')
-data = pd.get_dummies(data, columns=['genre_1', 'genre_2', 'genre_3', 'genre_4', 'mpaa'], drop_first=True)
+#BASELINE MODEL
+baseline = DummyRegressor(strategy="mean")
+baseline.fit(X_train, y_train)
 
-#SPLITTING DATA
-y = data["worldwide"] #Target
-X = data.drop(columns=['worldwide', 'domestic', 'international']) #Features
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+y_base = baseline.predict(X_val)
 
-#Creating model
-sc = StandardScaler()
-sc.fit(X_train)
-X_train= sc.transform(X_train)
-X_test = sc.transform(X_test)
+#for report generation
+y_base_train = baseline.predict(X_train)
+base_train_m = calc_metrics(y_train, y_base_train)
+base_val_m = calc_metrics(y_val, y_base)
+record_run(nn_runs, "Baseline(DummyMean)", {"strategy": "mean"}, base_train_m, base_val_m)
+#-----
 
-input_dim = X.shape[1]
-print(f"Input dimension: {input_dim}")
+print("BASELINE R^2:", r2_score(y_val, y_base))
+print("BASELINE RMSE:", np.sqrt(mean_squared_error(y_val, y_base)))
+print("BASELINE MAE:", mean_absolute_error(y_val, y_base))
+print("-" * 30)
+#--------------------
+param_sets = [
+    {"ID": "NN_1", "layers": [256, 128, 64, 32, 16], "regularizer": 0.01},
+    {"ID": "NN_2", "layers": [128, 64, 32], "regularizer": 0.01},
+    {"ID": "NN_3", "layers": [256, 128], "regularizer": 0.01},
+    {"ID": "NN_4", "layers": [512, 256, 128, 64], "regularizer": 0.01}
+]
 
-model = Sequential()
-model.add(Input(shape=(input_dim,)))
-model.add(Dense(256,activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 1, increased to highest reached 35.64%
-model.add(Dense(128, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 2, added for actual improvement over mean
-model.add(Dense(64, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 3, increased to 35%
-#model.add(Dropout(0.01))
-model.add(Dense(32, activation='relu',kernel_regularizer=regularizers.l1(0.01))) # Hidden 4
-model.add(Dense(16,activation='relu',kernel_regularizer=regularizers.l1(0.01))) #Hidden 5
+best_val_rmse = float('inf')
+best_model = None
+best_params = None
 
-# regularizers: ,kernel_regularizer=regularizers.l2(0.01)
+for p in param_sets:
+    model = Sequential()
+    model.add(Input(shape=(X_train.shape[1],)))
+    
+    # Adds hidden layers based on neurons in the param sets
+    for neurons in p["layers"]:
+        model.add(Dense(neurons,activation='relu',kernel_regularizer=regularizers.l1(p["regularizer"])))
+    model.add(Dense(1)) # Output
+    model.compile(loss='mean_squared_error', optimizer='adam')
+    #monitor = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5, verbose=1, mode='auto')
+    model.summary()
+    model.fit(X_train,y_train,verbose=1,epochs=250) #callbacks=[monitor],
+    
+    print("USING PARAMS:", p)
+    
+    #Evaluating the model
+    y_pred_train = model.predict(X_train) #Training
+    y_pred_val   = model.predict(X_val) #Validation
 
-model.add(Dense(1)) # Output
-model.compile(loss='mean_squared_error', optimizer='adam')
-#monitor = EarlyStopping(monitor='loss', min_delta=1e-3, patience=5, verbose=1, mode='auto')
-model.summary()
-model.fit(X_train,y_train,verbose=2,epochs=250) #callbacks=[monitor],
+    #for report generation
+    train_metrics = calc_metrics(y_train, y_pred_train)
+    val_metrics = calc_metrics(y_val, y_pred_val) 
+    record_run(nn_runs, "NeuralNetwork", p, train_metrics, val_metrics)
+    #--------
 
-#With test data
-pred = model.predict(X_test)
-score = np.sqrt(metrics.mean_squared_error(pred,y_test))
-print(f"Final score (RMSE): {score}")
+    print_metrics("NN_TRAIN", y_train, y_pred_train)
+    print_metrics("NN_VAL",   y_val,   y_pred_val)
 
-mean = DummyRegressor(strategy="mean")
-mean.fit(X_train, y_train)
-y_mean = mean.predict(X_test)
-baseline_rmse = np.sqrt(metrics.mean_squared_error(y_test, y_mean))
-print(f"Baseline RMSE: {baseline_rmse}")
-print(f"Model RMSE: {score}")
-print(f"Improvement: {(baseline_rmse - score)/baseline_rmse*100:.2f}%")
+    # Track best model based on validation RMSE
+    if val_metrics["rmse"] < best_val_rmse:
+        best_val_rmse = val_metrics["rmse"]
+        best_model = model
+        best_params = p.copy()
+        print(f"Current best model, RMSE: {val_metrics['rmse']/1e6:.2f}M")
+    
+    print("-" * 30)
 
-# #path to where the file will be saved
-# save_path = "save/"
+if best_params:
+    final_model = Sequential()
+    final_model.add(Input(shape=(X_trainval.shape[1],)))
+    
+    for neurons in best_params["layers"]:
+        final_model.add(Dense(neurons,activation='relu',kernel_regularizer=regularizers.l1(p["regularizer"])))
+    final_model.add(Dense(1))
+    final_model.compile(loss='mean_squared_error', optimizer='adam')
+    final_model.summary()
+    final_model.fit(X_trainval,y_trainval,verbose=1,epochs=250)
+    
+    write_runs_csv(nn_runs, "Reports/NeuralNetwork/NN_Tuning_Runs.csv") #GENERATE RUNS REPORT
 
-# # save neural network structure to JSON (no weights)
-# model_json = model.to_json()
-# with open(os.path.join(save_path,"NeuralNetworkRegressor.json"), "w") as json_file:
-#     json_file.write(model_json)
-
-# # save entire network to KERAS (save everything, suggested)
-# model.save(os.path.join(save_path,"NeuralNetworkRegressor.keras"))
-
-# # code for reloading
-# model2 = load_model(os.path.join(save_path,"NeuralNetworkRegressor.keras"))
-# pred = model2.predict(X_test)
-# score = np.sqrt(metrics.mean_squared_error(pred,y_test))
-# print(f"Final score (RMSE): {score}")
+    y_pred_test = best_model.predict(X_test) #predict on x-test set
+    print_metrics("NN_TEST", y_test, y_pred_test)
+    
+    #FINAL RESULTS
+    test_results = calc_metrics(y_test, y_pred_test)
+    pd.DataFrame([{
+        "model": "NeuralNetwork",
+        "params": str(best_params),
+        "r2_test": test_results["r2"],
+        "rmse_test": test_results["rmse"],
+        "mae_test": test_results["mae"]
+    }]).to_csv("Reports/NeuralNetwork/NN_Test_Result.csv", index=False)
+else:
+    print("No successful models!")
