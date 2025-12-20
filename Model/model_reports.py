@@ -58,13 +58,14 @@ def record_run(rows, model_name, params_dict, train_metrics, val_metrics):
     row = {
         "model": model_name,
         "params": str(params_dict),
-        "r2_train": train_metrics["r2"],
-        "rmse_train": train_metrics["rmse"],
-        "mae_train": train_metrics["mae"],
-        "r2_val": val_metrics["r2"],
-        "rmse_val": val_metrics["rmse"],
-        "mae_val": val_metrics["mae"],
-        "r2_gap_train_minus_val": train_metrics["r2"] - val_metrics["r2"],
+        "r2_train": round(train_metrics["r2"], 3),
+        "rmse_train": round(train_metrics["rmse"] / MILLION, 3),
+        "mae_train": round(train_metrics["mae"] / MILLION , 2),
+
+        "r2_val": round(val_metrics["r2"], 3),
+        "rmse_val": round(val_metrics["rmse"] /MILLION, 2),
+        "mae_val": round(val_metrics["mae"] / MILLION, 2),
+        "r2_gap": round(train_metrics["r2"] - val_metrics["r2"], 3),
     }
     rows.append(row)
 

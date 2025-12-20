@@ -6,8 +6,6 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder
 import warnings
 from model_reports import ( #Helper methods for report generation
     print_metrics, make_preprocess, write_data_quality_csv, calc_metrics, record_run, write_runs_csv
@@ -117,3 +115,26 @@ write_runs_csv(lr_runs, "Reports/LinearRegression/LR_Tuning_Runs.csv") #GENERATE
 best_model.fit(X_trainval, y_trainval) #refit model
 y_pred_test = best_model.predict(X_test) #predict on x-test set
 print_metrics("LR_TEST", y_test, y_pred_test)
+
+#Write final results as table
+test_results = calc_metrics(y_test, y_pred_test)
+pd.DataFrame([{
+    "model": "LinearRegression",
+    "params": str(best_p),
+    "r2_test": test_results["r2"],
+    "rmse_test": test_results["rmse"],
+    "mae_test": test_results["mae"],
+}]).to_csv("Reports/LinearRegression/LR_Test_Result.csv", index=False) #FINAL RESULT FILE
+
+#Write baseline table (only once from this file ONLY) ----
+baseline.fit(X_trainval, y_trainval)
+y_base_test = baseline.predict(X_test)
+base_m = calc_metrics(y_test, y_base_test)
+
+pd.DataFrame([{
+    "model": "Baseline(DummyMean)",
+    "params": "{'strategy':'mean'}",
+    "r2_test": base_m["r2"],
+    "rmse_test": base_m["rmse"],
+    "mae_test": base_m["mae"],
+}]).to_csv("Reports/Baseline_Test_Result.csv", index=False)

@@ -1,0 +1,4 @@
+model,params,r2_test,rmse_test_M,mae_test_M
+Baseline(DummyMean),{'strategy':'mean'},-0.002,197.57,132.85
+LinearRegression,{'fit_intercept': True},0.519,136.94,82.78
+RandomForest,"{'n_estimators': 200, 'max_depth': None, 'min_samples_leaf': 1, 'max_features': 'sqrt'}",0.592,126.05,78.73

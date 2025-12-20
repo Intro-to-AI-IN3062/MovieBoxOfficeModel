@@ -1,0 +1,2 @@
+model,params,r2_test,rmse_test,mae_test
+RandomForest,"{'n_estimators': 200, 'max_depth': None, 'min_samples_leaf': 1, 'max_features': 'sqrt'}",0.5921675468784983,126053486.73116042,78725417.31292954
